@@ -1,0 +1,12 @@
+{
+  "name": "cachuelo-admin-web",
+  "version": "1.1.0",
+  "description": "CACHUELO — Panel Administrativo Web Oficial (Todo Ecuador)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

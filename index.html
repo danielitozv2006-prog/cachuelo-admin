@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CACHUELO — Panel Administrativo Web Oficial (Todo Ecuador)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===================================================================== -->
+  <!-- 1. PANTALLA DE AUTENTICACIÓN ADMINISTRATIVA PROTEGIDA POR ROL Y RLS   -->
+  <!-- ===================================================================== -->
+  <div id="auth-gate" class="auth-gate">
+    <div class="auth-card">
+      <div class="brand-header">
+        <div class="brand-logo-svg" aria-hidden="true">
+          <svg viewBox="0 0 100 85" width="76" height="64">
+            <path d="M22,48 Q45,46 62,51 Q55,73 30,75 Q16,72 22,48 Z" fill="#00B4A6" />
+            <path d="M10,39 A32,30 0 0,1 74,39 L78,39 Q80,45 70,46 L8,46 Q2,45 6,38 Z" fill="#FF8A00" />
+            <line x1="35" y1="15" x2="33" y2="26" stroke="#0B1F2A" stroke-width="4.5" stroke-linecap="round" />
+            <line x1="48" y1="13" x2="48" y2="25" stroke="#0B1F2A" stroke-width="4.5" stroke-linecap="round" />
+            <g transform="translate(68,53) rotate(-42)">
+              <rect x="-22" y="-5.5" width="44" height="11" rx="5" fill="#F4F6FA" />
+              <circle cx="22" cy="0" r="12" fill="#F4F6FA" />
+              <circle cx="-20" cy="0" r="9.5" fill="#F4F6FA" />
+              <circle cx="26" cy="0" r="5.5" fill="#0B1F2A" />
+              <circle cx="-22" cy="0" r="4.2" fill="#0B1F2A" />
+            </g>
+          </svg>
+        </div>
+        <h1 class="brand-wordmark"><span>CACHU</span><span class="accent">ELO</span></h1>
+        <p class="brand-subtitle">Consola Administrativa Web &bull; Operación Nacional Ecuador</p>
+      </div>
+
+      <form id="admin-login-form" class="auth-form">
+        <div class="form-group">
+          <label for="login-email">Correo electrónico administrativo</label>
+          <input type="email" id="login-email" required placeholder="admin@cachuelo.ec" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Contraseña</label>
+          <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <div id="auth-error" class="alert alert-danger hidden"></div>
+        <div id="auth-info" class="alert alert-teal hidden"></div>
+        <button type="submit" id="btn-login" class="btn btn-primary btn-block">
+          Ingresar al Panel Administrativo
+        </button>
+        <button type="button" id="btn-forgot-password" class="btn btn-secondary btn-sm btn-block" style="margin-top:10px;">
+          Enviar enlace para cambiar contraseña al correo
+        </button>
+      </form>
+
+      <div class="auth-security-note">
+        <span>Protegido por Supabase Auth, validación de rol <code>admin / owner</code> y Row Level Security (RLS) en PostgreSQL.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 2. APLICACIÓN ADMINISTRATIVA PRINCIPAL                                -->
+  <!-- ===================================================================== -->
+  <div id="admin-app" class="admin-layout hidden">
+    <!-- Barra Lateral -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <svg viewBox="0 0 100 85" width="42" height="36">
+          <path d="M22,48 Q45,46 62,51 Q55,73 30,75 Q16,72 22,48 Z" fill="#00B4A6" />
+          <path d="M10,39 A32,30 0 0,1 74,39 L78,39 Q80,45 70,46 L8,46 Q2,45 6,38 Z" fill="#FF8A00" />
+          <g transform="translate(68,53) rotate(-42)">
+            <rect x="-22" y="-5.5" width="44" height="11" rx="5" fill="#F4F6FA" />
+            <circle cx="22" cy="0" r="12" fill="#F4F6FA" />
+            <circle cx="-20" cy="0" r="9.5" fill="#F4F6FA" />
+            <circle cx="26" cy="0" r="5.5" fill="#0B1F2A" />
+            <circle cx="-22" cy="0" r="4.2" fill="#0B1F2A" />
+          </g>
+        </svg>
+        <div>
+          <div class="sidebar-title"><span>CACHU</span><span class="accent">ELO</span></div>
+          <div class="sidebar-badge">ADMIN ECUADOR</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <span class="nav-dot"></span> Dashboard y Mapa Nacional
+        </button>
+        <button class="nav-item" data-tab="users">
+          <span class="nav-dot"></span> Usuarios y Trabajadores
+          <span id="badge-users" class="nav-pill">0</span>
+        </button>
+        <button class="nav-item" data-tab="cachuelos">
+          <span class="nav-dot"></span> Cachuelos y Seguimiento
+          <span id="badge-cachuelos" class="nav-pill">0</span>
+        </button>
+        <button class="nav-item" data-tab="finances">
+          <span class="nav-dot"></span> Finanzas, Comisiones y Banco
+          <span id="badge-settlements" class="nav-pill pill-accent">0</span>
+        </button>
+        <button class="nav-item" data-tab="withdrawals">
+          <span class="nav-dot"></span> Solicitudes de Retiro
+          <span id="badge-withdrawals" class="nav-pill pill-accent">0</span>
+        </button>
+        <button class="nav-item" data-tab="support">
+          <span class="nav-dot"></span> Incidencias y Calificaciones
+          <span id="badge-reports" class="nav-pill pill-danger">0</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-dot"></span> Cobertura y Configuración
+        </button>
+        <button class="nav-item" data-tab="audit">
+          <span class="nav-dot"></span> Historial de Auditoría
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-user-box">
+          <div id="admin-avatar" class="admin-avatar">A</div>
+          <div class="admin-meta">
+            <div id="admin-name" class="admin-name">Administrador</div>
+            <div id="admin-role" class="admin-role">OWNER</div>
+          </div>
+        </div>
+        <button id="btn-change-password" class="btn btn-secondary btn-sm btn-block" style="margin-bottom:8px;">
+          Cambiar mi contraseña
+        </button>
+        <button id="btn-logout" class="btn btn-outline-danger btn-sm btn-block">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h2 id="page-title" class="page-title">Dashboard Nacional y Operaciones en Tiempo Real</h2>
+          <p id="page-subtitle" class="page-subtitle">Cobertura activa en las 24 provincias del Ecuador &bull; Sincronización Supabase Realtime</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="realtime-status" class="status-badge status-online">● Tiempo Real Conectado</span>
+          <button id="btn-refresh-all" class="btn btn-secondary btn-sm">Actualizar Datos</button>
+        </div>
+      </header>
+
+      <div id="toast-container" class="toast-container"></div>
+
+      <!-- TAB 1: DASHBOARD Y MAPA NACIONAL -->
+      <section id="tab-dashboard" class="tab-panel active">
+        <div id="kpi-grid" class="kpi-grid"></div>
+
+        <div class="card mt-20">
+          <div class="card-header">
+            <div>
+              <h3>Mapa Operativo Nacional — Todo Ecuador</h3>
+              <p class="text-muted">Monitoreo geoespacial en vivo de cachuelos publicados, activos, completados y trabajadores en línea en cualquier provincia, cantón o localidad.</p>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-xs" data-map-focus="-1.8312,-78.1834,7">Todo Ecuador</button>
+              <button class="btn btn-secondary btn-xs" data-map-focus="-2.1709,-79.9224,11">Guayaquil / Guayas</button>
+              <button class="btn btn-secondary btn-xs" data-map-focus="-1.0450,-79.6350,10">El Empalme / Balzar / Quevedo</button>
+              <button class="btn btn-secondary btn-xs" data-map-focus="-0.9677,-80.7089,11">Manta / Jaramijó / Manabí</button>
+              <button class="btn btn-secondary btn-xs" data-map-focus="-0.1807,-78.4678,11">Quito / Pichincha</button>
+              <button class="btn btn-secondary btn-xs" data-map-focus="-2.9001,-79.0059,12">Cuenca / Azuay</button>
+              <button class="btn btn-secondary btn-xs" data-map-focus="-3.9931,-79.2042,12">Loja</button>
+            </div>
+          </div>
+          <div id="ecuador-live-map" class="ecuador-map"></div>
+        </div>
+      </section>
+
+      <!-- TAB 2: USUARIOS Y TRABAJADORES -->
+      <section id="tab-users" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Gestión de Usuarios, Clientes y Trabajadores</h3>
+              <p class="text-muted">Activa, suspende o bloquea cuentas, asigna roles administrativos, liquida comisiones o realiza ajustes auditados de billetera.</p>
+            </div>
+            <div class="filters-row">
+              <input type="text" id="filter-users-search" placeholder="Buscar por nombre, correo o teléfono..." />
+              <select id="filter-users-status">
+                <option value="ALL">Todos los estados</option>
+                <option value="ACTIVE">Cuentas activas</option>
+                <option value="SUSPENDED">Suspendidas / Bloqueadas</option>
+                <option value="ONLINE">Trabajadores en línea</option>
+                <option value="DEBT">Con comisión pendiente</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Contacto</th>
+                  <th>Rol / Modo</th>
+                  <th>Estado</th>
+                  <th>Reputación y Trabajos</th>
+                  <th>Finanzas Efectivo y Billetera</th>
+                  <th>Acciones Reales</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-users"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: CACHUELOS Y SEGUIMIENTO -->
+      <section id="tab-cachuelos" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Cachuelos Publicados, Activos, Completados, Cancelados y en Disputa</h3>
+              <p class="text-muted">Seguimiento completo del ciclo de vida, coordenadas GPS reales, expansión de radio nacional, negociación, OTP y chat.</p>
+            </div>
+            <div class="filters-row">
+              <input type="text" id="filter-jobs-search" placeholder="Buscar código CCH, título, cliente, sector..." />
+              <select id="filter-jobs-status">
+                <option value="ALL">Todos los estados</option>
+                <option value="SEARCHING">Publicados / Buscando</option>
+                <option value="NEGOTIATING">En Negociación</option>
+                <option value="ACTIVE">Activos en Curso (Aceptado / En camino / En lugar / En progreso)</option>
+                <option value="COMPLETED">Completados (Efectivo)</option>
+                <option value="CANCELLED">Cancelados</option>
+                <option value="DISPUTED">En Disputa / Reportados</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Código / Fecha</th>
+                  <th>Trabajo y Referencia</th>
+                  <th>Ubicación GPS / Radio</th>
+                  <th>Cliente / Trabajador</th>
+                  <th>Tarifa / Comisión / Neto</th>
+                  <th>Estado</th>
+                  <th>Seguimiento y Control</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-cachuelos"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: FINANZAS, COMISIONES Y CUENTA BANCARIA ADMINISTRATIVA -->
+      <section id="tab-finances" class="tab-panel hidden">
+        <!-- Cuenta Bancaria Administrativa Privada -->
+        <div class="card card-highlight-teal mb-20">
+          <div class="card-header">
+            <div>
+              <h3>Cuenta Bancaria Administrativa Oficial — Tesorería CACHUELO (Privada)</h3>
+              <p class="text-muted">Almacenamiento seguro con acceso restringido exclusivamente a administración autorizada (RLS <code>is_admin()</code>). Oculta para clientes, trabajadores y APIs públicas.</p>
+            </div>
+            <button id="btn-edit-treasury" class="btn btn-primary btn-sm">Editar Cuenta Administrativa</button>
+          </div>
+          <div id="treasury-summary-box" class="treasury-grid"></div>
+        </div>
+
+        <!-- Solicitudes y Registros de Liquidación de Comisiones -->
+        <div class="card mb-20">
+          <div class="card-header">
+            <div>
+              <h3>Liquidaciones de Comisiones de Plataforma (Pagos en Efectivo)</h3>
+              <p class="text-muted">Al pagarse los trabajos en efectivo entre cliente y trabajador, aquí se concilian y aprueban los pagos de comisiones realizados por los trabajadores hacia la cuenta administrativa configurada.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Código / Fecha</th>
+                  <th>Trabajador</th>
+                  <th>Monto Enviado</th>
+                  <th>Canal / N° Comprobante</th>
+                  <th>Aplicación Contable</th>
+                  <th>Estado / Conciliación</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-settlements"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Libro Mayor de Movimientos Financieros -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Historial de Movimientos Contables (Ledger Global)</h3>
+              <p class="text-muted">Trazabilidad inmutable de cobros en efectivo, comisiones generadas, liquidaciones verificadas, retiros y ajustes.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Fecha / Hora</th>
+                  <th>Usuario</th>
+                  <th>Tipo de Movimiento</th>
+                  <th>Bruto</th>
+                  <th>Comisión</th>
+                  <th>Impacto Neto</th>
+                  <th>Saldo Billetera Post</th>
+                  <th>Descripción</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-transactions"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: SOLICITUDES DE RETIRO BANCARIO -->
+      <section id="tab-withdrawals" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Solicitudes de Retiro Bancario de Trabajadores</h3>
+              <p class="text-muted">Aprobación, registro de comprobante de transferencia bancaria pagada o rechazo con reembolso automático a billetera.</p>
+            </div>
+            <div class="filters-row">
+              <select id="filter-withdrawals-status">
+                <option value="ALL">Todos los estados</option>
+                <option value="PENDING">Pendientes de revisión</option>
+                <option value="APPROVED">Aprobados (Por transferir)</option>
+                <option value="PAID">Pagados</option>
+                <option value="REJECTED">Rechazados</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Trabajador</th>
+                  <th>Monto</th>
+                  <th>Banco y Cuenta Destino</th>
+                  <th>Titular / Cédula</th>
+                  <th>Estado / Referencia</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-withdrawals"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: INCIDENCIAS, SOPORTE Y CALIFICACIONES -->
+      <section id="tab-support" class="tab-panel hidden">
+        <div class="card mb-20">
+          <div class="card-header">
+            <div>
+              <h3>Control de Incidencias, Reclamos y Tickets de Soporte</h3>
+              <p class="text-muted">Resolución de disputas, reportes de usuarios y asistencia operativa con notificación automática.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Ticket / Fecha</th>
+                  <th>Usuario</th>
+                  <th>Categoría</th>
+                  <th>Asunto y Descripción</th>
+                  <th>Estado / Resolución</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-reports"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Auditoría de Calificaciones y Reseñas</h3>
+              <p class="text-muted">Revisiones verificadas entre clientes y trabajadores tras finalizar cachuelos.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cachuelo</th>
+                  <th>De Usuario</th>
+                  <th>Para Usuario</th>
+                  <th>Rol Evaluado</th>
+                  <th>Estrellas</th>
+                  <th>Comentario</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-ratings"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: CONFIGURACIÓN DE COMISIÓN, RETIRO MÍNIMO Y COBERTURA NACIONAL -->
+      <section id="tab-settings" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Configuración Global de Negocio, Comisiones y Cobertura Nacional</h3>
+              <p class="text-muted">Los cambios se aplican inmediatamente en la base de datos y en todas las aplicaciones conectadas en Ecuador.</p>
+            </div>
+          </div>
+          <form id="settings-form" class="settings-grid">
+            <div class="form-group">
+              <label for="set-commission">Porcentaje de Comisión CACHUELO (%)</label>
+              <input type="number" step="0.1" min="0" max="50" id="set-commission" required />
+              <small>Inicialmente 10.0%. Se calcula de forma transparente sobre cada cachuelo.</small>
+            </div>
+            <div class="form-group">
+              <label for="set-min-withdrawal">Monto Mínimo de Retiro Bancario (USD)</label>
+              <input type="number" step="0.5" min="1" max="500" id="set-min-withdrawal" required />
+              <small>Inicialmente $6.00 USD.</small>
+            </div>
+            <div class="form-group">
+              <label for="set-init-radius">Radio Inicial de Búsqueda GPS (km)</label>
+              <input type="number" step="0.5" min="1" max="100" id="set-init-radius" required />
+              <small>Etapa 1: trabajadores más cercanos (ej. 5.0 km).</small>
+            </div>
+            <div class="form-group">
+              <label for="set-exp-radius">Radio Expandido Urbano/Cantonal (km)</label>
+              <input type="number" step="1" min="2" max="200" id="set-exp-radius" required />
+              <small>Etapa 2: expansión cantonal automática (ej. 15.0 km).</small>
+            </div>
+            <div class="form-group">
+              <label for="set-reg-radius">Radio Regional / Intercantonal (km)</label>
+              <input type="number" step="1" min="10" max="400" id="set-reg-radius" required />
+              <small>Etapa 3: corredores intercantonales como El Empalme-Balzar-Quevedo o Manta-Jaramijó (ej. 60.0 km).</small>
+            </div>
+            <div class="form-group">
+              <label for="set-max-radius">Radio Máximo Cobertura Nacional (km)</label>
+              <input type="number" step="10" min="50" max="1500" id="set-max-radius" required />
+              <small>Etapa 4: cobertura nacional en todo Ecuador (600.0 km) para no excluir trabajadores más alejados.</small>
+            </div>
+            <div class="form-group">
+              <label for="set-min-workers">Mínimo de Trabajadores antes de Detener Expansión</label>
+              <input type="number" step="1" min="1" max="25" id="set-min-workers" required />
+              <small>Si hay menos trabajadores en el radio inicial, expande automáticamente al siguiente radio.</small>
+            </div>
+            <div class="form-group">
+              <label for="set-offer-expiry">Tiempo para Responder Oferta (segundos)</label>
+              <input type="number" step="10" min="30" max="600" id="set-offer-expiry" required />
+            </div>
+            <div class="form-group">
+              <label for="set-otp-expiry">Validez del Código OTP de Llegada (minutos)</label>
+              <input type="number" step="10" min="15" max="720" id="set-otp-expiry" required />
+            </div>
+            <div class="form-group">
+              <label for="set-max-photos">Máximo de Fotografías por Cachuelo (Cero Videos)</label>
+              <input type="number" step="1" min="1" max="5" id="set-max-photos" required />
+            </div>
+            <div class="settings-actions">
+              <button type="submit" class="btn btn-primary">Guardar Parámetros en el Servidor</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB 8: HISTORIAL DE ACCIONES ADMINISTRATIVAS -->
+      <section id="tab-audit" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Historial Inmutable de Acciones Administrativas</h3>
+              <p class="text-muted">Registro de seguridad de cada operación ejecutada por administradores sobre usuarios, retiros, comisiones, tesorería y parámetros.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Fecha / Hora</th>
+                  <th>Administrador</th>
+                  <th>Acción</th>
+                  <th>Entidad</th>
+                  <th>ID Registro</th>
+                  <th>Detalle Técnico (JSON)</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-audit"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL UNIVERSAL PARA ACCIONES Y SEGUIMIENTO EN VIVO -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Detalle</h3>
+        <button id="modal-close" class="btn-icon">&times;</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
