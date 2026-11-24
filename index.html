@@ -289,6 +289,30 @@
           </div>
         </div>
 
+        <!-- Control de Morosidad y Bloqueo por Comisiones -->
+        <div class="card mb-20">
+          <div class="card-header">
+            <div>
+              <h3>Trabajadores con Comisiones Pendientes, Próximos al Límite y Morosos</h3>
+              <p class="text-muted">Control de límite de deuda (USD 6), plazo de pago y bloqueo/desbloqueo de aceptación de cachuelos sin desactivar la cuenta.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Trabajador</th>
+                  <th>Deuda Pendiente</th>
+                  <th>Total Pagado</th>
+                  <th>Estado / Plazo</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-debtors"></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Libro Mayor de Movimientos Financieros -->
         <div class="card">
           <div class="card-header">
@@ -422,29 +446,34 @@
               <small>Inicialmente 10.0%. Se calcula de forma transparente sobre cada cachuelo.</small>
             </div>
             <div class="form-group">
-              <label for="set-min-withdrawal">Monto Mínimo de Retiro Bancario (USD)</label>
-              <input type="number" step="0.5" min="1" max="500" id="set-min-withdrawal" required />
-              <small>Inicialmente $6.00 USD.</small>
+              <label for="set-debt-limit">Límite de Deuda de Comisiones (USD)</label>
+              <input type="number" step="0.5" min="1" max="500" id="set-debt-limit" required />
+              <small>Por defecto $6.00 USD. Al alcanzar este monto se notifica al trabajador para transferir.</small>
+            </div>
+            <div class="form-group">
+              <label for="set-grace-hours">Plazo de Pago antes de Bloqueo (horas)</label>
+              <input type="number" step="1" min="1" max="720" id="set-grace-hours" required />
+              <small>Por defecto 48 horas. Si no paga dentro del plazo, se bloquea la aceptación de nuevos cachuelos.</small>
             </div>
             <div class="form-group">
               <label for="set-init-radius">Radio Inicial de Búsqueda GPS (km)</label>
-              <input type="number" step="0.5" min="1" max="100" id="set-init-radius" required />
-              <small>Etapa 1: trabajadores más cercanos (ej. 5.0 km).</small>
+              <input type="number" step="0.5" min="0.5" max="20" id="set-init-radius" required />
+              <small>Etapa 1: trabajadores más cercanos (por defecto 2.0 km).</small>
             </div>
             <div class="form-group">
-              <label for="set-exp-radius">Radio Expandido Urbano/Cantonal (km)</label>
-              <input type="number" step="1" min="2" max="200" id="set-exp-radius" required />
-              <small>Etapa 2: expansión cantonal automática (ej. 15.0 km).</small>
+              <label for="set-exp-radius">Radio Progresivo Etapa 2 (km)</label>
+              <input type="number" step="1" min="2" max="30" id="set-exp-radius" required />
+              <small>Etapa 2: primera ampliación progresiva (por defecto 5.0 km).</small>
             </div>
             <div class="form-group">
-              <label for="set-reg-radius">Radio Regional / Intercantonal (km)</label>
-              <input type="number" step="1" min="10" max="400" id="set-reg-radius" required />
-              <small>Etapa 3: corredores intercantonales como El Empalme-Balzar-Quevedo o Manta-Jaramijó (ej. 60.0 km).</small>
+              <label for="set-reg-radius">Radio Progresivo Etapa 3 (km)</label>
+              <input type="number" step="1" min="5" max="40" id="set-reg-radius" required />
+              <small>Etapa 3: ampliación intermedia (por defecto 10.0 km; luego 15.0 km).</small>
             </div>
             <div class="form-group">
-              <label for="set-max-radius">Radio Máximo Cobertura Nacional (km)</label>
-              <input type="number" step="10" min="50" max="1500" id="set-max-radius" required />
-              <small>Etapa 4: cobertura nacional en todo Ecuador (600.0 km) para no excluir trabajadores más alejados.</small>
+              <label for="set-max-radius">Radio Máximo de Búsqueda Local (km)</label>
+              <input type="number" step="1" min="5" max="50" id="set-max-radius" required />
+              <small>Tope máximo configurable (por defecto 20.0 km) para evitar desplazamientos poco rentables entre provincias.</small>
             </div>
             <div class="form-group">
               <label for="set-min-workers">Mínimo de Trabajadores antes de Detener Expansión</label>

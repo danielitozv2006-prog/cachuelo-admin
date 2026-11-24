@@ -483,9 +483,8 @@ function initNationalMap() {
   // Vista nacional de todo Ecuador
   state.map = L.map('ecuador-live-map').setView([-1.8312, -78.8], 7);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap & CartoDB &bull; CACHUELO Ecuador',
-    subdomains: 'abcd',
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors &bull; CACHUELO Ecuador',
     maxZoom: 19,
   }).addTo(state.map);
 
@@ -1063,10 +1062,14 @@ function renderFinancesAndTreasury() {
             <td>
               ${esc(s.payment_channel)}<br/>
               <small class="text-muted">Ref: ${esc(s.receipt_reference)}</small>
+              ${
+                s.proof_image_url
+                  ? `<br/><a href="${esc(s.proof_image_url)}" target="_blank" rel="noopener noreferrer" style="color:#00B4A6;font-size:12px;font-weight:700;">Ver foto comprobante</a>`
+                  : ''
+              }
             </td>
             <td>
-              Deuda reducida: ${fmtUsd(s.debt_reduced)}<br/>
-              <small class="text-muted">Acreditado saldo: ${fmtUsd(s.credited_to_balance)}</small>
+              Deuda reducida: ${fmtUsd(s.debt_reduced)}
             </td>
             <td>
               <span class="badge ${bCls}">${esc(s.status)}</span><br/>
@@ -1114,7 +1117,79 @@ function renderFinancesAndTreasury() {
       )
       .join('');
   }
+
+  // Tabla de trabajadores morosos / próximos al límite
+  renderDebtorsTable();
 }
+
+async function renderDebtorsTable() {
+  const tbodyD = document.getElementById('tbody-debtors');
+  if (!tbodyD) return;
+  try {
+    const { data, error } = await sb.rpc('admin_list_workers_commission_status');
+    if (error) throw error;
+    const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) {
+      tbodyD.innerHTML = `<tr><td colspan="5" class="text-muted">No hay trabajadores con comisiones pendientes ni morosos.</td></tr>`;
+      return;
+    }
+    tbodyD.innerHTML = rows
+      .map((w) => {
+        const badgeCls =
+          w.debt_status_label === 'BLOQUEADO' || w.debt_status_label === 'EN_LIMITE'
+            ? 'badge-red'
+            : w.debt_status_label === 'PROXIMO_LIMITE'
+            ? 'badge-orange'
+            : 'badge-green';
+        return `
+          <tr>
+            <td>
+              <strong>${esc(w.full_name || 'Trabajador')}</strong><br/>
+              <small class="text-muted">${esc(w.phone || '')}</small>
+            </td>
+            <td><strong style="color:#FF8A00">${fmtUsd(w.pending_commission_debt)}</strong> <small class="text-muted">/ ${fmtUsd(w.debt_limit)}</small></td>
+            <td>${fmtUsd(w.total_commission_settled)}</td>
+            <td>
+              <span class="badge ${badgeCls}">${esc(w.debt_status_label)}</span>
+              ${w.commission_debt_due_at ? `<br/><small class="text-muted">Vence: ${fmtDate(w.commission_debt_due_at)}</small>` : ''}
+              ${w.worker_blocked_reason ? `<br/><small class="text-muted">${esc(w.worker_blocked_reason)}</small>` : ''}
+            </td>
+            <td>
+              <div class="btn-group">
+                ${
+                  w.worker_blocked_for_debt
+                    ? `<button class="btn btn-success btn-xs" onclick="window.toggleWorkerDebtBlock('${w.id}', false)">Desbloquear</button>`
+                    : `<button class="btn btn-outline-danger btn-xs" onclick="window.toggleWorkerDebtBlock('${w.id}', true)">Bloquear</button>`
+                }
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  } catch (err) {
+    tbodyD.innerHTML = `<tr><td colspan="5" class="text-muted">Error cargando morosidad: ${esc(err.message)}</td></tr>`;
+  }
+}
+
+window.toggleWorkerDebtBlock = async function (workerId, blocked) {
+  const reason = blocked
+    ? prompt('Motivo del bloqueo de modo cachuelador (deuda vencida):', 'Deuda de comisiones vencida')
+    : 'Desbloqueado por administración';
+  if (blocked && reason === null) return;
+  try {
+    const { error } = await sb.rpc('admin_set_worker_debt_block', {
+      p_worker_id: workerId,
+      p_blocked: blocked,
+      p_reason: reason || '',
+    });
+    if (error) throw error;
+    showToast(blocked ? 'Trabajador bloqueado para aceptar cachuelos.' : 'Trabajador desbloqueado.');
+    await loadAllAdminData();
+  } catch (err) {
+    showToast('Error: ' + err.message, true);
+  }
+};
 
 document.getElementById('btn-edit-treasury').addEventListener('click', () => {
   const t = state.treasury || {};
@@ -1432,11 +1507,12 @@ window.openResolveReportModal = function (reportId) {
 function renderSettingsForm() {
   const s = state.settings;
   document.getElementById('set-commission').value = s['COMMISSION_PERCENT'] || '10.0';
-  document.getElementById('set-min-withdrawal').value = s['MIN_WITHDRAWAL_USD'] || '6.00';
-  document.getElementById('set-init-radius').value = s['INITIAL_SEARCH_RADIUS_KM'] || '5.0';
-  document.getElementById('set-exp-radius').value = s['EXPANDED_SEARCH_RADIUS_KM'] || '15.0';
-  document.getElementById('set-reg-radius').value = s['REGIONAL_SEARCH_RADIUS_KM'] || '60.0';
-  document.getElementById('set-max-radius').value = s['MAX_SEARCH_RADIUS_KM'] || '600.0';
+  document.getElementById('set-debt-limit').value = s['COMMISSION_DEBT_LIMIT_USD'] || '6.00';
+  document.getElementById('set-grace-hours').value = s['COMMISSION_PAYMENT_GRACE_HOURS'] || '48';
+  document.getElementById('set-init-radius').value = s['INITIAL_SEARCH_RADIUS_KM'] || '2.0';
+  document.getElementById('set-exp-radius').value = s['EXPANDED_SEARCH_RADIUS_KM'] || '5.0';
+  document.getElementById('set-reg-radius').value = s['REGIONAL_SEARCH_RADIUS_KM'] || '10.0';
+  document.getElementById('set-max-radius').value = s['MAX_SEARCH_RADIUS_KM'] || '20.0';
   document.getElementById('set-min-workers').value = s['MIN_WORKERS_FOR_RADIUS_STOP'] || '3';
   document.getElementById('set-offer-expiry').value = s['OFFER_EXPIRY_SECONDS'] || '120';
   document.getElementById('set-otp-expiry').value = s['OTP_EXPIRY_MINUTES'] || '120';
@@ -1447,7 +1523,8 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
   e.preventDefault();
   const pairs = [
     ['COMMISSION_PERCENT', document.getElementById('set-commission').value],
-    ['MIN_WITHDRAWAL_USD', document.getElementById('set-min-withdrawal').value],
+    ['COMMISSION_DEBT_LIMIT_USD', document.getElementById('set-debt-limit').value],
+    ['COMMISSION_PAYMENT_GRACE_HOURS', document.getElementById('set-grace-hours').value],
     ['INITIAL_SEARCH_RADIUS_KM', document.getElementById('set-init-radius').value],
     ['EXPANDED_SEARCH_RADIUS_KM', document.getElementById('set-exp-radius').value],
     ['REGIONAL_SEARCH_RADIUS_KM', document.getElementById('set-reg-radius').value],
